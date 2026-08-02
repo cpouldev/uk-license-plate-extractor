@@ -1,5 +1,8 @@
 # UK License Plate Extractor
 
+[![CI](https://github.com/cpouldev/uk-license-plate-extractor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cpouldev/uk-license-plate-extractor/actions/workflows/ci.yml)
+[![Go version](https://img.shields.io/github/go-mod/go-version/cpouldev/uk-license-plate-extractor)](https://go.dev/)
+
 A small Go HTTP service that detects and reads UK/European licence plates locally with ONNX Runtime. It uses pinned detection and OCR models with explicit validation thresholds, ranking behavior, and response shape.
 
 ## API
