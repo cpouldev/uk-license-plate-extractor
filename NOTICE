@@ -1,0 +1,105 @@
+uk-license-plate-extractor
+Copyright (c) 2026 Charalampos Poulikidis
+Licensed under the MIT License; see LICENSE.md.
+
+This product includes third-party software and pinned model assets. The
+attributions below are required by the corresponding licenses; the maintenance
+notes at the end record derivations that are not obvious from the source.
+
+================================================================================
+Third-party software
+================================================================================
+
+OpenCV
+https://opencv.org  —  https://github.com/opencv/opencv
+Licensed under the Apache License, Version 2.0.
+(OpenCV was BSD-3-Clause before release 4.5.0; confirm which applies to the
+version this project's implementation was derived from.)
+
+    The bilinear resampler in internal/plate/preprocess.go reproduces OpenCV's
+    generic C++ INTER_LINEAR path for 8-bit input: fixed-point interpolation
+    weights at a 1<<11 scale (INTER_RESIZE_COEF_BITS), the two-truncation
+    vertical accumulate, and the asymmetric edge handling between the two axes
+    — the horizontal coefficient loop clamps the interpolation fraction to
+    zero, while the vertical axis preserves the fraction and clamps only the
+    row index. resizePlanar, linearCoefficients and verticalLinear implement
+    that behaviour.
+
+ONNX Runtime
+https://github.com/microsoft/onnxruntime
+Licensed under the MIT License.
+Redistributed in binary form: the container image bundles libonnxruntime
+1.24.1, downloaded and SHA-256 verified during the Docker build.
+
+onnxruntime_go
+https://github.com/yalue/onnxruntime_go
+Copyright (c) 2023 Nathan Otterness
+Licensed under the MIT License.
+
+golang.org/x/image
+https://pkg.go.dev/golang.org/x/image
+Copyright 2009 The Go Authors.
+Licensed under the BSD 3-Clause License.
+
+================================================================================
+Pinned model assets
+================================================================================
+
+These are downloaded at build or first start and verified against the SHA-256
+digests pinned in internal/assets/models.go. They are not committed to this
+repository, but the container image bakes them in, which is redistribution.
+
+Detector — yolo-v9-s-608-license-plates-end2end.onnx
+    https://github.com/ankandrew/open-image-models
+    Licensed under the MIT License.
+
+OCR — european_mobile_vit_v2_ocr.onnx
+    https://github.com/ankandrew/cnn-ocr-lp
+    LICENSE NOT DETERMINED. The upstream repository publishes no license file,
+    so redistribution terms for this model are unclear. Resolve this before
+    distributing the container image externally.
+
+Reference test image (development only, not shipped)
+    https://github.com/ankandrew/fast-alpr — assets/test_image.png
+    Licensed under the MIT License.
+    Used by the opt-in integration test described in README.md. The recorded
+    baseline (text 5AU5341, detector confidence 0.9028370380401611, crop 91x32)
+    corresponds to this exact image.
+
+================================================================================
+Regenerating the resize golden vectors
+================================================================================
+
+internal/plate/resize_golden_test.go pins resizePlanar against recorded output.
+It is the only hermetic guard on the resampler: changing the weights or the
+rounding leaves every other test green while detection confidence silently
+drifts. The vectors were produced as follows.
+
+Fixtures are self-describing — for source width sw, height sh and channel
+count cn, the source buffer is interleaved, row-major, and filled with:
+
+    src[i] = (i*37 + 11) % 251        for i in 0 .. sw*sh*cn-1
+
+reshaped to (sh, sw) for cn=1 or (sh, sw, 3) for cn=3, dtype uint8.
+
+The oracle is OpenCV:
+
+    dst = cv2.resize(src, (dw, dh), interpolation=cv2.INTER_LINEAR)
+
+flattened in the same interleaved row-major order. Verified against
+opencv-python-headless 4.10.0.84 and 5.0.0.93, which produce byte-identical
+output; every case matched elementwise with zero differing elements.
+
+MUST be regenerated on x86-64. OpenCV ships architecture-specific HAL backends
+on aarch64 — Carotene, and KleidiCV in wheels from 4.13.0.92 — that deviate
+from OpenCV's own generic C++ path by up to 4/255. Running the same fixtures on
+an arm64 wheel disagrees (one case differed on 3071 of 9800 elements), and
+which shapes and channel counts deviate varies by wheel and by size. An arm64
+result is an invalid oracle, not something to work around. On Apple Silicon,
+use Docker with --platform linux/amd64.
+
+The same x86-64 rule applies to regenerating the integration baseline above.
+
+Note that this parity covers resampling only. Go's JPEG decoder differs from
+libjpeg-turbo in chroma upsampling and IDCT, so JPEG input does not reproduce
+the baseline; see the preprocessing invariants in AGENTS.md.

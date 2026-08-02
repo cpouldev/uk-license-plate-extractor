@@ -1,0 +1,5 @@
+.DS_Store
+.env
+/models/*.onnx
+/uk-license-plate-extractor
+.idea/
