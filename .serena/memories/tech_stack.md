@@ -4,7 +4,7 @@
 - Models: `yolo-v9-s-608-license-plate-end2end` detector and `european-plates-mobile-vit-v2-model` OCR; CPU execution.
 - HTTP uses Go standard library.
 - Deployment target: OCI/Docker Linux image; local development on Darwin requires an ONNX Runtime dylib path.
-- CI/CD: `.github/workflows/ci.yml` gates release management on `make check` plus a no-push multi-platform (`linux/amd64`, `linux/arm64`) build. Pull requests and manual runs never authenticate or publish.
+- CI/CD: `.github/workflows/ci.yml` always gates release management on `make check`. Ordinary pull requests and manual runs also perform a no-push multi-platform (`linux/amd64`, `linux/arm64`) build; generated Release Please PRs and pushes to `main` skip that redundant build. Pull requests and manual runs never authenticate or publish.
 - Versioning: Release Please starts at `0.0.0`, maintains a release PR from Conventional Commits (`fix` patch, `feat` minor, breaking major), and creates `vX.Y.Z` plus a GitHub Release when that PR merges.
 - Release credentials: `RELEASE_PLEASE_TOKEN` is a repository-scoped GitHub PAT with Contents, Issues, and Pull requests read/write access; `DOCKERHUB_TOKEN` is scoped to pushing `cpoul/uk-license-plate-extractor`.
 - Docker Hub contract: `.github/workflows/publish.yml` idempotently publishes existing `vX.Y.Z` tags (automatically on tag push or manually for retry) as `latest`, `X.Y.Z`, `X.Y`, `X` when major > 0, and `sha-<full-commit-sha>`.

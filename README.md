@@ -112,7 +112,7 @@ docker build -t uk-license-plate-extractor .
 docker run --rm -p 8080:8080 uk-license-plate-extractor
 ```
 
-The Dockerfile targets Linux `amd64` and `arm64`. On every pull request and push to `main`, CI builds both architectures after `make check`; only a release tag publishes to Docker Hub.
+The Dockerfile targets Linux `amd64` and `arm64`. On ordinary pull requests and manual CI runs, CI builds both architectures after `make check`; generated Release Please PRs run the Go checks only. A release tag performs the single release build and publishes it to Docker Hub.
 
 ## Releases
 

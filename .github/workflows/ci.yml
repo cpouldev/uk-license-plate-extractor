@@ -43,6 +43,10 @@ jobs:
   image:
     name: Validate multi-platform container
     needs: check
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+      !startsWith(github.head_ref, 'release-please--branches--'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -78,9 +82,7 @@ jobs:
 
   release:
     name: Prepare semantic release
-    needs:
-      - check
-      - image
+    needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
