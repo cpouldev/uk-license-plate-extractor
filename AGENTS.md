@@ -36,6 +36,8 @@ The real-model integration test is opt-in and skips unless all four `PLATE_INTEG
 
 Local runs need a native ONNX Runtime 1.24.x library; the Docker image bundles both the runtime and the models, so the container needs no network at startup.
 
+CI (`.github/workflows/ci.yml`) runs `make check`, then `git diff --exit-code` — an uncommitted formatting rewrite fails the build. It also builds the image for `linux/amd64` and `linux/arm64` without pushing, and on `main` runs Release Please. Publishing lives in `.github/workflows/publish.yml`, which fires on a `v*` tag or a manual dispatch naming an existing tag; it is the only workflow that authenticates to Docker Hub. Three constraints govern edits to either file: every action is pinned to a full commit SHA with a trailing `# vX.Y.Z` comment; the Docker Hub login is scoped (`cpoul/uk-license-plate-extractor@push`), which writes credentials to the Buildx config alone, so a plain `docker push` step would be unauthenticated and the scoped login needs Buildx 0.31.0 or newer; and Release Please must keep running under `RELEASE_PLEASE_TOKEN`, because a tag pushed with the default `GITHUB_TOKEN` would not trigger `publish.yml`.
+
 ## Architecture
 
 ### Wiring and startup order
@@ -117,6 +119,18 @@ Roughly `0.15 GiB + 0.64 GiB × MAX_CONCURRENT_REQUESTS`. The default of `4` the
 **Model integrity.** `Ensure` verifies pre-existing files on every startup, downloads to a temp file, verifies the digest, then atomically renames. A checksum mismatch fails startup rather than overwriting. Model binaries are never committed; changing a model means updating the URL and digest in both `internal/assets/models.go` and the `Dockerfile` models stage.
 
 ## Conventions
+
+### Conventional commits and releases
+
+Release Please derives semantic versions from commits on `main`. Use Conventional Commits for every commit and for any PR title that may become a squash-merge commit:
+
+- `fix(plate): reject empty OCR results` triggers a patch release.
+- `feat(api): add batch extraction` triggers a minor release.
+- `feat(api)!: change the response schema` triggers a major release. A `BREAKING CHANGE: <description>` footer also marks a breaking change.
+
+Write the description in the imperative mood, lowercase its first word, and omit the trailing period. Use an optional scope when it adds useful context. Choose other Conventional Commit types only when they accurately describe the change; never disguise a user-visible fix or feature as `chore` to avoid a release.
+
+Do not edit release versions or create release tags manually. Merge the Release Please PR when the accumulated changes are ready to publish.
 
 - Standard-library-first Go; `gofmt` all touched files.
 - Structured logging with `log/slog`; never log raw image bytes.
