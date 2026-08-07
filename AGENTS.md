@@ -134,6 +134,7 @@ Do not edit release versions or create release tags manually. Merge the Release 
 
 - Standard-library-first Go; `gofmt` all touched files.
 - Structured logging with `log/slog`; never log raw image bytes.
+- Keep `README.md` limited to quick-start and usage documentation. Put source setup, testing, CI/CD, releases, and asset maintenance in `CONTRIBUTING.md`.
 - Repo-specific notes also live as Serena memories in `.serena/memories/` (`core` is the graph root). If you establish a durable, non-obvious convention, update those alongside this file; `.serena/memories/memory_maintenance.md` documents the style and the add/update threshold.
 
 ### Use Serena MCP for Semantic Code Analysis instead of regular code search and editing

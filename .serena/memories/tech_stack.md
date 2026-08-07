@@ -9,3 +9,4 @@
 - Release credentials: `RELEASE_PLEASE_TOKEN` is a repository-scoped GitHub PAT with Contents, Issues, and Pull requests read/write access; `DOCKERHUB_TOKEN` is scoped to pushing `cpoul/uk-license-plate-extractor`.
 - Docker Hub contract: `.github/workflows/publish.yml` idempotently publishes existing `vX.Y.Z` tags (automatically on tag push or manually for retry) as `latest`, `X.Y.Z`, `X.Y`, `X` when major > 0, and `sha-<full-commit-sha>`.
 - Workflow constraints: actions pinned to full commit SHAs with trailing `# vX.Y.Z` comments; the scoped login (`<image>@push`) writes credentials to the Buildx config alone, so a non-Buildx `docker push` is unauthenticated and Buildx >= 0.31.0 is required; `make check` is followed by `git diff --exit-code`.
+- Documentation boundary: `README.md` contains quick-start and operator usage only; `CONTRIBUTING.md` owns source setup, tests, CI/CD, releases, and asset maintenance; `AGENTS.md` retains the deeper implementation invariants.
