@@ -1,7 +1,11 @@
 # UK License Plate Extractor
 
 [![CI/CD](https://github.com/cpouldev/uk-license-plate-extractor/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cpouldev/uk-license-plate-extractor/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/cpouldev/uk-license-plate-extractor)](https://github.com/cpouldev/uk-license-plate-extractor/releases/latest)
 [![Go version](https://img.shields.io/github/go-mod/go-version/cpouldev/uk-license-plate-extractor)](https://go.dev/)
+[![Docker pulls](https://img.shields.io/docker/pulls/cpoul/uk-license-plate-extractor)](https://hub.docker.com/r/cpoul/uk-license-plate-extractor)
+[![Docker image size](https://img.shields.io/docker/image-size/cpoul/uk-license-plate-extractor/latest)](https://hub.docker.com/r/cpoul/uk-license-plate-extractor/tags)
+[![License](https://img.shields.io/github/license/cpouldev/uk-license-plate-extractor)](LICENSE.md)
 
 Send it photos of vehicles, get back the licence plate. It reads UK and European plates entirely on your own machine — no API key, no cloud service, no per-request cost.
 
