@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/cpouldev/uk-license-plate-extractor/compare/v1.0.0...v1.1.0) (2026-09-02)
+
+
+### Features
+
+* add early exit and ONNX thread controls ([9f54b8e](https://github.com/cpouldev/uk-license-plate-extractor/commit/9f54b8e246044dbdfaba13d9bcd9a211313f704f))
+
 ## 1.0.0 (2026-08-07)
 
 
