@@ -60,18 +60,20 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	}
 	defer logClose("ONNX Runtime", plate.DestroyONNXRuntime)
 
-	detector, err := plate.NewONNXDetector(cfg.DetectorModelPath)
+	logger.Info("configuring inference", "intra_op_threads", cfg.IntraOpThreads, "early_exit_confidence", cfg.EarlyExitConfidence)
+	sessionSettings := plate.SessionSettings{IntraOpThreads: cfg.IntraOpThreads}
+	detector, err := plate.NewONNXDetector(cfg.DetectorModelPath, sessionSettings)
 	if err != nil {
 		return err
 	}
 	defer logClose("detector", detector.Close)
-	recognizer, err := plate.NewONNXRecognizer(cfg.OCRModelPath)
+	recognizer, err := plate.NewONNXRecognizer(cfg.OCRModelPath, sessionSettings)
 	if err != nil {
 		return err
 	}
 	defer logClose("recognizer", recognizer.Close)
 
-	extractor := plate.NewExtractor(detector, recognizer, logger)
+	extractor := plate.NewExtractor(detector, recognizer, logger, plate.WithEarlyExitConfidence(cfg.EarlyExitConfidence))
 	handler := httpapi.NewHandler(extractor, logger, httpapi.Limits{
 		MaxRequestBytes: cfg.MaxRequestBytes,
 		MaxImageBytes:   cfg.MaxImageBytes,

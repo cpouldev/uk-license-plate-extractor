@@ -26,12 +26,48 @@ func DestroyONNXRuntime() error {
 	return ort.DestroyEnvironment()
 }
 
+// SessionSettings tunes how ONNX Runtime executes a model. The zero value keeps the
+// runtime defaults.
+type SessionSettings struct {
+	// IntraOpThreads caps the threads a session uses to run a single operator. Zero
+	// keeps the runtime default, which sizes the pool to every host core; with several
+	// requests in flight those pools compete for the same cores and every image slows
+	// down, so on small hosts set it to roughly the core count divided by the number of
+	// concurrent requests.
+	IntraOpThreads int
+}
+
+// newSession opens modelPath with the fixed input and output names of one model. Session
+// options exist only while settings ask for something other than the runtime defaults:
+// ONNX Runtime copies them into the session, so they are released as soon as the
+// constructor returns.
+func newSession(modelPath string, inputNames, outputNames []string, settings SessionSettings) (*ort.DynamicAdvancedSession, error) {
+	if settings.IntraOpThreads == 0 {
+		return ort.NewDynamicAdvancedSession(modelPath, inputNames, outputNames, nil)
+	}
+	options, err := ort.NewSessionOptions()
+	if err != nil {
+		return nil, fmt.Errorf("create session options: %w", err)
+	}
+	defer func() { _ = options.Destroy() }()
+	if err := options.SetIntraOpNumThreads(settings.IntraOpThreads); err != nil {
+		return nil, fmt.Errorf("set intra-op threads: %w", err)
+	}
+	// The inter-op pool only schedules independent operators in parallel execution mode,
+	// which these sessions never enable; pinning it to one thread keeps it from being
+	// sized to the host anyway.
+	if err := options.SetInterOpNumThreads(1); err != nil {
+		return nil, fmt.Errorf("set inter-op threads: %w", err)
+	}
+	return ort.NewDynamicAdvancedSession(modelPath, inputNames, outputNames, options)
+}
+
 type ONNXDetector struct {
 	session *ort.DynamicAdvancedSession
 }
 
-func NewONNXDetector(modelPath string) (*ONNXDetector, error) {
-	session, err := ort.NewDynamicAdvancedSession(modelPath, []string{"images"}, []string{"output0"}, nil)
+func NewONNXDetector(modelPath string, settings SessionSettings) (*ONNXDetector, error) {
+	session, err := newSession(modelPath, []string{"images"}, []string{"output0"}, settings)
 	if err != nil {
 		return nil, fmt.Errorf("load detector model: %w", err)
 	}
@@ -100,8 +136,8 @@ type ONNXRecognizer struct {
 	session *ort.DynamicAdvancedSession
 }
 
-func NewONNXRecognizer(modelPath string) (*ONNXRecognizer, error) {
-	session, err := ort.NewDynamicAdvancedSession(modelPath, []string{"input"}, []string{"concatenate"}, nil)
+func NewONNXRecognizer(modelPath string, settings SessionSettings) (*ONNXRecognizer, error) {
+	session, err := newSession(modelPath, []string{"input"}, []string{"concatenate"}, settings)
 	if err != nil {
 		return nil, fmt.Errorf("load OCR model: %w", err)
 	}

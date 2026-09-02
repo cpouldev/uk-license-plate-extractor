@@ -44,10 +44,10 @@ CI (`.github/workflows/ci.yml`) runs `make check`, then `git diff --exit-code` �
 
 `cmd/server/main.go` `run()` is the only composition root, and the order is load-bearing:
 
-1. `config.Load()` — env parsing plus validation (`ONNXRUNTIME_SHARED_LIBRARY_PATH` required; `MAX_IMAGE_BYTES` must not exceed `MAX_REQUEST_BYTES`; `ADDR` falls back to `:$PORT`).
+1. `config.Load()` — env parsing plus validation (`ONNXRUNTIME_SHARED_LIBRARY_PATH` required; `MAX_IMAGE_BYTES` must not exceed `MAX_REQUEST_BYTES`; `ADDR` falls back to `:$PORT`; `ONNX_INTRA_OP_THREADS` non-negative; `EARLY_EXIT_CONFIDENCE` within `[0, 1]`).
 2. `assets.Downloader.Ensure()` per model, under a 10-minute context — must complete before any ONNX call.
 3. `plate.InitializeONNXRuntime(cfg.RuntimeLibrary)` — process-global; sets the shared library path and initializes the env. Torn down by deferred `DestroyONNXRuntime()`.
-4. Detector then recognizer sessions, each with a deferred `Close()` (reverse order).
+4. Detector then recognizer sessions, built from one `plate.SessionSettings` (`ONNX_INTRA_OP_THREADS`; zero keeps the runtime's host-sized pool), each with a deferred `Close()` (reverse order).
 5. `plate.NewExtractor` → `httpapi.NewHandler` → `http.Server` with explicit timeouts, plus SIGINT/SIGTERM graceful shutdown.
 
 Because the runtime and sessions are process-global and created once, there is no per-request model loading. Sessions are shared across concurrent requests.
@@ -73,7 +73,7 @@ When adding inference behavior, put it behind these interfaces. Any change that 
 
 `Extractor.extractOne` per image: `decodeRGB` (40 MP cap) → `Detector.Detect` → pick the single highest-confidence box passing `MinimumDetectionConfidence` and having positive area → padded `crop` → `grayscale` → `Recognizer.Recognize` → strip non-alphanumerics → average char confidence gate → length gate → JPEG encode.
 
-`ExtractBest` then ranks accepted per-image results by **detector** confidence, not OCR confidence. `Result.Confidence` is the detector score.
+`ExtractBest` then ranks accepted per-image results by **detector** confidence, not OCR confidence. `Result.Confidence` is the detector score. With `EARLY_EXIT_CONFIDENCE` set (`plate.WithEarlyExitConfidence`), the scan stops at the first accepted plate scoring at least that much; the default of zero ranks every image.
 
 ### Tensor contracts
 

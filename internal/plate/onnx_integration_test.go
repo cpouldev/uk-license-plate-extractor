@@ -26,7 +26,7 @@ func TestONNXIntegration(t *testing.T) {
 			t.Errorf("DestroyONNXRuntime() error = %v", err)
 		}
 	})
-	detector, err := NewONNXDetector(detectorPath)
+	detector, err := NewONNXDetector(detectorPath, SessionSettings{})
 	if err != nil {
 		t.Fatalf("NewONNXDetector() error = %v", err)
 	}
@@ -35,7 +35,7 @@ func TestONNXIntegration(t *testing.T) {
 			t.Errorf("detector.Close() error = %v", err)
 		}
 	})
-	recognizer, err := NewONNXRecognizer(ocrPath)
+	recognizer, err := NewONNXRecognizer(ocrPath, SessionSettings{})
 	if err != nil {
 		t.Fatalf("NewONNXRecognizer() error = %v", err)
 	}

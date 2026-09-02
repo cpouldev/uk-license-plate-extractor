@@ -75,6 +75,54 @@ func TestExtractorSelectsBestPlateAcrossImages(t *testing.T) {
 	}
 }
 
+func TestExtractorStopsAtFirstPlateReachingEarlyExitConfidence(t *testing.T) {
+	// The second image would win a full ranking, so returning the first proves the scan
+	// stopped. Scoring exactly the threshold counts as reaching it.
+	detector := &fakeDetector{responses: []detectorResponse{
+		{detections: []Detection{{BoundingBox: BoundingBox{X1: 10, Y1: 10, X2: 20, Y2: 20}, Confidence: 0.85}}},
+		{detections: []Detection{{BoundingBox: BoundingBox{X1: 10, Y1: 10, X2: 20, Y2: 20}, Confidence: 0.99}}},
+	}}
+	recognizer := &fakeRecognizer{responses: []recognizerResponse{
+		{prediction: OCRPrediction{Text: "AA11", CharConfidences: []float64{0.9, 0.9, 0.9, 0.9}}},
+		{prediction: OCRPrediction{Text: "BB22", CharConfidences: []float64{0.9, 0.9, 0.9, 0.9}}},
+	}}
+	extractor := NewExtractor(detector, recognizer, discardLogger(), WithEarlyExitConfidence(0.85))
+
+	result, err := extractor.ExtractBest(context.Background(), [][]byte{testPNG(t, 30, 30), testPNG(t, 30, 30)})
+	if err != nil {
+		t.Fatalf("ExtractBest() error = %v", err)
+	}
+	if result == nil || result.Text != "AA11" || result.Confidence != 0.85 {
+		t.Fatalf("result = %+v, want the first confident plate AA11 at 0.85", result)
+	}
+	if detector.calls != 1 {
+		t.Fatalf("detector calls = %d, want 1: the scan should stop at the first image", detector.calls)
+	}
+}
+
+func TestExtractorKeepsScanningBelowEarlyExitConfidence(t *testing.T) {
+	detector := &fakeDetector{responses: []detectorResponse{
+		{detections: []Detection{{BoundingBox: BoundingBox{X1: 10, Y1: 10, X2: 20, Y2: 20}, Confidence: 0.80}}},
+		{detections: []Detection{{BoundingBox: BoundingBox{X1: 10, Y1: 10, X2: 20, Y2: 20}, Confidence: 0.84}}},
+	}}
+	recognizer := &fakeRecognizer{responses: []recognizerResponse{
+		{prediction: OCRPrediction{Text: "AA11", CharConfidences: []float64{0.9, 0.9, 0.9, 0.9}}},
+		{prediction: OCRPrediction{Text: "BB22", CharConfidences: []float64{0.9, 0.9, 0.9, 0.9}}},
+	}}
+	extractor := NewExtractor(detector, recognizer, discardLogger(), WithEarlyExitConfidence(0.85))
+
+	result, err := extractor.ExtractBest(context.Background(), [][]byte{testPNG(t, 30, 30), testPNG(t, 30, 30)})
+	if err != nil {
+		t.Fatalf("ExtractBest() error = %v", err)
+	}
+	if result == nil || result.Text != "BB22" || result.Confidence != 0.84 {
+		t.Fatalf("result = %+v, want the best of both images BB22 at 0.84", result)
+	}
+	if detector.calls != 2 {
+		t.Fatalf("detector calls = %d, want 2: nothing reached the threshold", detector.calls)
+	}
+}
+
 func TestExtractorSkipsInvalidImageAndInferenceError(t *testing.T) {
 	detector := &fakeDetector{responses: []detectorResponse{
 		{err: errors.New("temporary inference failure")},

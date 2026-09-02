@@ -95,6 +95,8 @@ Every setting is an environment variable. These are the ones you are likely to t
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `MAX_CONCURRENT_REQUESTS` | `4` | How many requests decode and run inference at once. **This drives memory use.** Extra requests wait up to 5 seconds, then get `503`. |
+| `ONNX_INTRA_OP_THREADS` | `0` | Threads each inference session may use for a single operator. `0` lets ONNX Runtime size the pool to every host core, which makes concurrent requests fight each other on small hosts; there, set it to roughly cores ÷ `MAX_CONCURRENT_REQUESTS`. |
+| `EARLY_EXIT_CONFIDENCE` | `0` | Stop scanning a request's images as soon as a plate is found at or above this detector confidence. `0` evaluates every image and returns the best; `0.85` is a good production value. |
 | `MAX_IMAGES` | `20` | Images allowed per request. |
 | `MAX_IMAGE_BYTES` | `15728640` | Largest single upload, 15 MiB by default. Must not exceed `MAX_REQUEST_BYTES`, or the service refuses to start. |
 | `MAX_REQUEST_BYTES` | `52428800` | Largest whole request, 50 MiB by default. |
@@ -142,7 +144,7 @@ Send one or more files as repeated multipart fields named `images`. On success y
 | `crop` | Base64 JPEG of the plate region alone. |
 | `confidence` | The **detector's** score for that plate, between 0 and 1. |
 
-Across several images, the service returns whichever accepted plate the detector was most confident about — not the longest or clearest-looking text.
+Across several images, the service returns whichever accepted plate the detector was most confident about — not the longest or clearest-looking text. Set `EARLY_EXIT_CONFIDENCE` to stop at the first accepted plate that clears that score instead, which skips the remaining images.
 
 **When no plate is found**, you still get HTTP 200, with the body `null`. That is a normal answer, not an error: no plate in the batch cleared the thresholds below.
 

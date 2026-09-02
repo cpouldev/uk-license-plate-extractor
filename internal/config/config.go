@@ -18,6 +18,10 @@ const (
 	// megabytes at MaximumDecodedPixels. Four keeps the worst case within a typical
 	// container while still using several cores; raise it only alongside the memory limit.
 	defaultMaxConcurrentRequests = 4
+	// Zero leaves both inference knobs at their conservative defaults: ONNX Runtime
+	// sizes its thread pools itself, and every image in a request is evaluated.
+	defaultIntraOpThreads      = 0
+	defaultEarlyExitConfidence = 0.0
 )
 
 type Config struct {
@@ -29,6 +33,12 @@ type Config struct {
 	MaxImageBytes     int64
 	MaxImages         int
 	MaxConcurrent     int
+	// IntraOpThreads bounds each ONNX session's intra-op thread pool; zero keeps the
+	// runtime default.
+	IntraOpThreads int
+	// EarlyExitConfidence stops a request's scan at the first plate scoring at least
+	// this much; zero evaluates every image.
+	EarlyExitConfidence float64
 }
 
 func Load() (Config, error) {
@@ -62,6 +72,12 @@ func Load() (Config, error) {
 	if cfg.MaxConcurrent, err = positiveIntEnv("MAX_CONCURRENT_REQUESTS", defaultMaxConcurrentRequests); err != nil {
 		return Config{}, err
 	}
+	if cfg.IntraOpThreads, err = nonNegativeIntEnv("ONNX_INTRA_OP_THREADS", defaultIntraOpThreads); err != nil {
+		return Config{}, err
+	}
+	if cfg.EarlyExitConfidence, err = unitIntervalEnv("EARLY_EXIT_CONFIDENCE", defaultEarlyExitConfidence); err != nil {
+		return Config{}, err
+	}
 	if cfg.RuntimeLibrary == "" {
 		return Config{}, fmt.Errorf("ONNXRUNTIME_SHARED_LIBRARY_PATH is required")
 	}
@@ -80,19 +96,33 @@ func envOrDefault(name, fallback string) string {
 }
 
 func positiveInt64Env(name string, fallback int64) (int64, error) {
+	return int64EnvAtLeast(name, fallback, 1, "a positive integer")
+}
+
+func positiveIntEnv(name string, fallback int) (int, error) {
+	return intEnvAtLeast(name, fallback, 1, "a positive integer")
+}
+
+func nonNegativeIntEnv(name string, fallback int) (int, error) {
+	return intEnvAtLeast(name, fallback, 0, "a non-negative integer")
+}
+
+// int64EnvAtLeast parses name as a base-10 integer no smaller than minimum. want names
+// the accepted values in the error, for example "a positive integer".
+func int64EnvAtLeast(name string, fallback, minimum int64, want string) (int64, error) {
 	raw := envOrDefault(name, "")
 	if raw == "" {
 		return fallback, nil
 	}
 	value, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || value <= 0 {
-		return 0, fmt.Errorf("%s must be a positive integer", name)
+	if err != nil || value < minimum {
+		return 0, fmt.Errorf("%s must be %s", name, want)
 	}
 	return value, nil
 }
 
-func positiveIntEnv(name string, fallback int) (int, error) {
-	value, err := positiveInt64Env(name, int64(fallback))
+func intEnvAtLeast(name string, fallback int, minimum int64, want string) (int, error) {
+	value, err := int64EnvAtLeast(name, int64(fallback), minimum, want)
 	if err != nil {
 		return 0, err
 	}
@@ -100,4 +130,17 @@ func positiveIntEnv(name string, fallback int) (int, error) {
 		return 0, fmt.Errorf("%s is too large", name)
 	}
 	return int(value), nil
+}
+
+// unitIntervalEnv parses name as a decimal fraction between 0 and 1 inclusive.
+func unitIntervalEnv(name string, fallback float64) (float64, error) {
+	raw := envOrDefault(name, "")
+	if raw == "" {
+		return fallback, nil
+	}
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil || math.IsNaN(value) || value < 0 || value > 1 {
+		return 0, fmt.Errorf("%s must be a number between 0 and 1", name)
+	}
+	return value, nil
 }

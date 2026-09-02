@@ -13,17 +13,34 @@ type Extractor struct {
 	detector   Detector
 	recognizer Recognizer
 	logger     *slog.Logger
+	// earlyExitConfidence, when positive, ends a request's scan at the first accepted
+	// plate the detector scored at least this high instead of ranking every image.
+	earlyExitConfidence float64
 }
 
-func NewExtractor(detector Detector, recognizer Recognizer, logger *slog.Logger) *Extractor {
+// Option adjusts an Extractor beyond the fixed extraction contract.
+type Option func(*Extractor)
+
+// WithEarlyExitConfidence stops scanning a request's images as soon as an accepted plate
+// reaches confidence, trading the best-of-batch guarantee for latency on multi-image
+// requests. Zero keeps every image in the ranking.
+func WithEarlyExitConfidence(confidence float64) Option {
+	return func(e *Extractor) { e.earlyExitConfidence = confidence }
+}
+
+func NewExtractor(detector Detector, recognizer Recognizer, logger *slog.Logger, options ...Option) *Extractor {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Extractor{
+	extractor := &Extractor{
 		detector:   detector,
 		recognizer: recognizer,
 		logger:     logger,
 	}
+	for _, option := range options {
+		option(extractor)
+	}
+	return extractor
 }
 
 func (e *Extractor) ExtractBest(ctx context.Context, images [][]byte) (*Result, error) {
@@ -44,6 +61,10 @@ func (e *Extractor) ExtractBest(ctx context.Context, images [][]byte) (*Result, 
 		if candidate != nil && (best == nil || candidate.Confidence > best.Confidence) {
 			best = candidate
 			bestIndex = index
+			if e.earlyExitConfidence > 0 && best.Confidence >= e.earlyExitConfidence {
+				e.logger.Info("early exit on confident plate", "index", index, "text", best.Text, "confidence", best.Confidence)
+				break
+			}
 		}
 	}
 	if best != nil {
